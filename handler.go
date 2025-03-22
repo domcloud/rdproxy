@@ -2,8 +2,10 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"log"
 	"net"
+	"strconv"
 	"strings"
 
 	"github.com/tidwall/redcon"
@@ -39,16 +41,10 @@ func (m *Handler) ServeRESP(conn redcon.Conn, cmd redcon.Command) {
 
 	upConn := context.upstreamConn
 	command := strings.ToUpper(string(cmd.Args[0]))
+	reviver := modSingleCommand(command, context.username, cmd.Args)
 
-	// Modify key (if applicable)
-	if modCommands[command] && len(cmd.Args) > 1 {
-		cmd.Args[1] = append([]byte(context.username+":"), cmd.Args[1]...)
-	}
-
-	// Construct RESP command
+	// Construct RESP command & send to redis
 	request := buildRESPCommand(cmd.Args)
-
-	// Send to Redis
 	_, err := upConn.Write(request)
 	if err != nil {
 		log.Printf("Failed to send command: %v", err)
@@ -57,11 +53,21 @@ func (m *Handler) ServeRESP(conn redcon.Conn, cmd redcon.Command) {
 	}
 
 	// Read response from Redis
-	response, err := bufio.NewReader(upConn).ReadBytes('\n')
-	if err != nil {
+	var b bytes.Buffer
+
+	reader := newRespReader(bufio.NewReader(upConn), &b, reviver)
+	if err = reader.readReply(); err != nil {
 		log.Printf("Failed to read response: %v", err)
 		conn.Close()
 		return
+	}
+	response := b.Bytes()
+
+	if command == "AUTH" && len(cmd.Args) == 3 {
+		if strings.HasPrefix(string(response), "+OK") {
+			context.username = string(cmd.Args[1])
+			conn.SetContext(context)
+		}
 	}
 
 	// Send response back to client
@@ -90,16 +96,16 @@ func (m *Handler) ClosedConn(conn redcon.Conn, err error) {
 }
 
 func buildRESPCommand(args [][]byte) []byte {
-	var sb strings.Builder
-	sb.WriteString("*")
-	sb.WriteString(strings.TrimSpace(string([]byte{byte(len(args) + '0')})))
+	var sb bytes.Buffer
+	sb.WriteByte('*')
+	sb.WriteString(strconv.Itoa(len(args)))
 	sb.WriteString("\r\n")
 	for _, arg := range args {
-		sb.WriteString("$")
-		sb.WriteString(strings.TrimSpace(string([]byte{byte(len(arg) + '0')})))
+		sb.WriteByte('$')
+		sb.WriteString(strconv.Itoa(len(arg)))
 		sb.WriteString("\r\n")
 		sb.Write(arg)
 		sb.WriteString("\r\n")
 	}
-	return []byte(sb.String())
+	return sb.Bytes()
 }

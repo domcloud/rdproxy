@@ -5,3 +5,10 @@ This is a redis proxy to make ACL more convenient. It prefixes keys with the ACL
 This software is currently WIP. Only support RESP2.
 
 Your app can connect to this instance listening by default at port `6479`. 
+
+## Envar Options
+
+| Env | Default |
+|:--|:--|
+|`LISTEN`|`:6479`|
+|`UPSTREAM_REDIS`|`:6379`|

@@ -3,27 +3,25 @@ package main
 import (
 	"log"
 
+	"github.com/kelseyhightower/envconfig"
 	"github.com/tidwall/redcon"
 )
 
-var addr = ":6380"
-
 func main() {
-	log.Printf("started server at %s", addr)
+	var s Config
+	err := envconfig.Process("", &s)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 
-	handler := NewHandler(Config{})
+	handler := NewHandler(s)
 
-	err := redcon.ListenAndServe(addr,
+	log.Printf("started server at %s", s.Listen)
+
+	err = redcon.ListenAndServe(s.Listen,
 		handler.ServeRESP,
-		func(conn redcon.Conn) bool {
-			// use this function to accept or deny the connection.
-			// log.Printf("accept: %s", conn.RemoteAddr())
-			return true
-		},
-		func(conn redcon.Conn, err error) {
-			// this is called when the connection has been closed
-			// log.Printf("closed: %s, err: %v", conn.RemoteAddr(), err)
-		},
+		handler.AcceptConn,
+		handler.ClosedConn,
 	)
 	if err != nil {
 		log.Fatal(err)

@@ -44,8 +44,12 @@ func (c *RespReader) readReply() error {
 		return nil
 	case '$':
 		n, err := parseLen(line[1:])
-		if n < 0 || err != nil {
+		if err != nil {
 			return err
+		}
+		if n < 0 {
+			c.bw.WriteString("$-1\r\n")
+			return nil
 		}
 		p := make([]byte, n+2)
 		_, err = io.ReadFull(c.br, p)
@@ -60,8 +64,12 @@ func (c *RespReader) readReply() error {
 		return nil
 	case '*':
 		n, err := parseLen(line[1:])
-		if n < 0 || err != nil {
+		if err != nil {
 			return err
+		}
+		if n < 0 {
+			c.bw.WriteString("*-1\r\n")
+			return nil
 		}
 		c.bw.Write(line)
 		for range n {

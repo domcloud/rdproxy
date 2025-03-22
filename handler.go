@@ -41,7 +41,8 @@ func (m *Handler) ServeRESP(conn redcon.Conn, cmd redcon.Command) {
 
 	upConn := context.upstreamConn
 	command := strings.ToUpper(string(cmd.Args[0]))
-	reviver := modSingleCommand(command, context.username, cmd.Args)
+	newArgs, reviver := modSingleCommand(command, context.username, cmd.Args)
+	cmd.Args = newArgs
 
 	// Construct RESP command & send to redis
 	request := buildRESPCommand(cmd.Args)
@@ -56,7 +57,7 @@ func (m *Handler) ServeRESP(conn redcon.Conn, cmd redcon.Command) {
 	var b bytes.Buffer
 
 	reader := newRespReader(bufio.NewReader(upConn), &b, reviver)
-	if err = reader.readReply(); err != nil {
+	if err = reader.ReadReply(); err != nil {
 		log.Printf("Failed to read response: %v", err)
 		conn.Close()
 		return

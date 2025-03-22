@@ -8,9 +8,9 @@ import (
 	"strconv"
 )
 
-type transformerFn func(code byte, line []byte) []byte
+type reviverFn func(pos int, depth int, line []byte) []byte
 
-func newRespReader(b *bufio.Reader, w *bytes.Buffer, fn transformerFn) RespReader {
+func newRespReader(b *bufio.Reader, w *bytes.Buffer, fn reviverFn) RespReader {
 	return RespReader{
 		br: b,
 		bw: w,
@@ -21,7 +21,7 @@ func newRespReader(b *bufio.Reader, w *bytes.Buffer, fn transformerFn) RespReade
 type RespReader struct {
 	br *bufio.Reader
 	bw *bytes.Buffer
-	fn transformerFn
+	fn reviverFn
 }
 
 type readerError string
@@ -30,7 +30,10 @@ func (pe readerError) Error() string {
 	return fmt.Sprintf("parse erro: %s", string(pe))
 }
 
-func (c *RespReader) readReply() error {
+func (c *RespReader) ReadReply() error {
+	return c.readReply(0, 0)
+}
+func (c *RespReader) readReply(pos, depth int) error {
 	line, err := c.readLine()
 	if err != nil {
 		return err
@@ -57,7 +60,7 @@ func (c *RespReader) readReply() error {
 			return err
 		}
 		if c.fn != nil {
-			p = c.fn('$', p)
+			p = c.fn(pos, depth, p)
 		}
 		c.bw.WriteString("$" + strconv.Itoa(len(p)-2) + "\r\n")
 		c.bw.Write(p)
@@ -72,8 +75,8 @@ func (c *RespReader) readReply() error {
 			return nil
 		}
 		c.bw.Write(line)
-		for range n {
-			err = c.readReply()
+		for i := range n {
+			err = c.readReply(i, depth+1)
 			if err != nil {
 				return err
 			}

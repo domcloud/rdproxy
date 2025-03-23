@@ -111,23 +111,25 @@ func (m *Handler) subscriptionLoop(conn redcon.DetachedConn, upConn net.Conn) {
 	}
 
 	go (func() {
-		cmd, err := conn.ReadCommand()
-		if err != nil {
-			log.Printf("Failed to read command: %v", err)
-			conn.Close()
-			return
-		}
-		command := strings.ToUpper(string(cmd.Args[0]))
-		newArgs, _ := modSingleCommand(command, context.username, cmd.Args)
-		cmd.Args = newArgs
+		for {
+			cmd, err := conn.ReadCommand()
+			if err != nil {
+				log.Printf("Failed to read command: %v", err)
+				conn.Close()
+				return
+			}
+			command := strings.ToUpper(string(cmd.Args[0]))
+			newArgs, _ := modSingleCommand(command, context.username, cmd.Args)
+			cmd.Args = newArgs
 
-		// Construct RESP command & send to redis
-		request := buildRESPCommand(cmd.Args)
-		_, err = upConn.Write(request)
-		if err != nil {
-			log.Printf("Failed to send command: %v", err)
-			conn.Close()
-			return
+			// Construct RESP command & send to redis
+			request := buildRESPCommand(cmd.Args)
+			_, err = upConn.Write(request)
+			if err != nil {
+				log.Printf("Failed to send command: %v", err)
+				conn.Close()
+				return
+			}
 		}
 	})()
 

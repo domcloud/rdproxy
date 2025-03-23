@@ -4,6 +4,8 @@ This is a redis proxy to make ACL more convenient. It prefixes keys with the ACL
 
 Your app can connect to this instance listening by default at port `6479`. 
 
+If your framework doesn't have a way to log in via `AUTH username password`, you can log in using legacy password like `AUTH username:::password` (note the double colon). This nonstandard way of log in only works with this proxy and not with actual redis instance.
+
 ## What it does do
 
 Let's assume this software runs on port 6479 while the upstream Redis is on port 6379.
@@ -14,6 +16,8 @@ This is how it works when it executed serially:
 
 ```
 |GET foo| > |GET default:foo|
+|AUTH foo:::bar| > |AUTH foo bar|
+|GET baz| > |GET foo:baz|
 |AUTH user pass| > |AUTH user pass|
 |GET foo| > |GET user:foo|
 |SET foo bar| > |GET user:foo bar|

@@ -7,6 +7,7 @@ import (
 
 // Command modification types
 const (
+	ModifyAuth         = "auth"
 	ModifyFirst        = "first"
 	ModifyFirstTwo     = "first_two"
 	ModifyAll          = "all"
@@ -26,6 +27,7 @@ const (
 
 // Define namespaced command rules (extracted from redis-namespace)
 var namespacedCommands = map[string]string{
+	"AUTH":   ModifyAuth,
 	"APPEND": ModifyFirst, "BITCOUNT": ModifyFirst, "BITFIELD": ModifyFirst,
 	"BITOP": ModifyExcludeFirst, "BITPOS": ModifyFirst, "BLPOP": ModifyExcludeLast,
 	"BRPOP": ModifyExcludeLast, "BRPOPLPUSH": ModifyExcludeLast, "BZPOPMIN": ModifyFirst,
@@ -89,6 +91,13 @@ func modSingleCommand(command, username string, args [][]byte) ([][]byte, revive
 	}
 
 	switch modType {
+	case ModifyAuth:
+		if len(args) == 2 {
+			if user, pass, found := strings.Cut(string(args[1]), ":::"); found {
+				args[1] = []byte(user)
+				args = append(args, []byte(pass))
+			}
+		}
 	case ModifyFirst:
 		if len(args) > 1 {
 			args[1] = appendPrefix(args[1])

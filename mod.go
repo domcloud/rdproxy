@@ -1,6 +1,9 @@
 package main
 
-import "strings"
+import (
+	"bytes"
+	"strings"
+)
 
 // Command modification types
 const (
@@ -81,53 +84,57 @@ func modSingleCommand(command, username string, args [][]byte) ([][]byte, revive
 
 	namespacePrefix := []byte(username + ":")
 
+	appendPrefix := func(b []byte) []byte {
+		return bytes.Join([][]byte{namespacePrefix, b}, nil)
+	}
+
 	switch modType {
 	case ModifyFirst:
 		if len(args) > 1 {
-			args[1] = append(namespacePrefix, args[1]...)
+			args[1] = appendPrefix(args[1])
 		}
 	case ModifyFirstTwo:
 		if len(args) > 2 {
-			args[1] = append(namespacePrefix, args[1]...)
-			args[2] = append(namespacePrefix, args[2]...)
+			args[1] = appendPrefix(args[1])
+			args[2] = appendPrefix(args[2])
 		}
 	case ModifyAll:
 		for i := 1; i < len(args); i++ {
-			args[i] = append(namespacePrefix, args[i]...)
+			args[i] = appendPrefix(args[i])
 		}
 	case ModifyExcludeFirst:
 		for i := 2; i < len(args); i++ {
-			args[i] = append(namespacePrefix, args[i]...)
+			args[i] = appendPrefix(args[i])
 		}
 	case ModifyExcludeLast:
 		for i := 1; i < len(args)-1; i++ {
-			args[i] = append(namespacePrefix, args[i]...)
+			args[i] = appendPrefix(args[i])
 		}
 	case ModifyExcludeOpts:
 		if len(args) > 2 && len(args[len(args)-1]) > 0 {
 			// Check if last argument is an option (e.g., weight, aggregate)
 			for i := 1; i < len(args)-1; i++ {
-				args[i] = append(namespacePrefix, args[i]...)
+				args[i] = appendPrefix(args[i])
 			}
 		} else {
 			for i := 1; i < len(args); i++ {
-				args[i] = append(namespacePrefix, args[i]...)
+				args[i] = appendPrefix(args[i])
 			}
 		}
 	case ModifyAlternate:
 		for i := 2; i < len(args); i += 2 {
-			args[i] = append(namespacePrefix, args[i]...)
+			args[i] = appendPrefix(args[i])
 		}
 	case ModifySort:
 		if len(args) > 1 {
-			args[1] = append(namespacePrefix, args[1]...)
+			args[1] = appendPrefix(args[1])
 		}
 		// If second argument is not hash, modify 'by', 'store', and 'get' keys
 		for i := 2; i+1 < len(args); i += 1 {
 			key := strings.ToUpper(string(args[i]))
 			if key == "BY" || key == "STORE" {
 				i += 1
-				args[i] = append(namespacePrefix, args[i]...)
+				args[i] = appendPrefix(args[i])
 			}
 			if key == "LIMIT" {
 				i += 2
@@ -149,14 +156,14 @@ func modSingleCommand(command, username string, args [][]byte) ([][]byte, revive
 			return args, nil
 		}
 		for i := 3; i < 3+klen; i++ {
-			args[i] = append(namespacePrefix, args[i]...)
+			args[i] = appendPrefix(args[i])
 		}
 	case ModifyScanStyle:
 		// Modify MATCH argument
 		found := false
 		for i := 1; i < len(args)-1; i++ {
 			if strings.ToUpper(string(args[i])) == "MATCH" {
-				args[i+1] = append(namespacePrefix, args[i+1]...)
+				args[i+1] = appendPrefix(args[i+1])
 				found = true
 				break
 			}

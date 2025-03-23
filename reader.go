@@ -38,7 +38,7 @@ func (c *RespReader) readReply(pos, depth int) error {
 	if err != nil {
 		return err
 	}
-	if len(line) < 2 {
+	if len(line) < 3 {
 		return readerError("short response line")
 	}
 	switch line[0] {
@@ -46,7 +46,7 @@ func (c *RespReader) readReply(pos, depth int) error {
 		c.bw.Write(line)
 		return nil
 	case '$':
-		n, err := parseLen(line[1:])
+		n, err := parseLen(line[1 : len(line)-2])
 		if err != nil {
 			return err
 		}
@@ -66,7 +66,7 @@ func (c *RespReader) readReply(pos, depth int) error {
 		c.bw.Write(p)
 		return nil
 	case '*':
-		n, err := parseLen(line[1:])
+		n, err := parseLen(line[1 : len(line)-2])
 		if err != nil {
 			return err
 		}
@@ -117,13 +117,13 @@ func parseLen(p []byte) (int, error) {
 		return -1, readerError("malformed length")
 	}
 
-	if p[0] == '-' && len(p) == 4 && p[1] == '1' {
+	if p[0] == '-' && len(p) == 2 && p[1] == '1' {
 		// handle $-1 and $-1 null replies.
 		return -1, nil
 	}
 
 	var n int
-	for _, b := range p[:len(p)-2] {
+	for _, b := range p {
 		n *= 10
 		if b < '0' || b > '9' {
 			return -1, readerError("illegal bytes in length")

@@ -13,6 +13,7 @@ const (
 	ModifyAlternate    = "alternate"
 	ModifySort         = "sort"
 	ModifyEvalStyle    = "eval_style"
+	ModifyEvalShaStyle = "evalsha_style"
 	ModifyScanStyle    = "scan_style"
 
 	ReviveFirst  = "first"
@@ -27,7 +28,9 @@ var namespacedCommands = map[string]string{
 	"BRPOP": ModifyExcludeLast, "BRPOPLPUSH": ModifyExcludeLast, "BZPOPMIN": ModifyFirst,
 	"BZPOPMAX": ModifyFirst, "DECR": ModifyFirst, "DECRBY": ModifyFirst, "DEL": ModifyAll,
 	"DUMP": ModifyFirst, "EXISTS": ModifyAll, "EXPIRE": ModifyFirst, "EXPIREAT": ModifyFirst,
-	"EXPIRETIME": ModifyFirst, "EVAL": ModifyEvalStyle, "EVALSHA": ModifyEvalStyle,
+	"EXPIRETIME": ModifyFirst, "EVAL": ModifyEvalStyle, "EVALSHA": ModifyEvalShaStyle,
+	"EVAL_RO": ModifyEvalStyle, "EVALSHA_RO": ModifyEvalShaStyle,
+	"FCALL": ModifyEvalStyle, "FCALL_RO": ModifyEvalStyle,
 	"GET": ModifyFirst, "GETEX": ModifyFirst, "GETBIT": ModifyFirst, "GETRANGE": ModifyFirst,
 	"GETSET": ModifyFirst, "HSET": ModifyFirst, "HSETNX": ModifyFirst, "HGET": ModifyFirst,
 	"HINCRBY": ModifyFirst, "HINCRBYFLOAT": ModifyFirst, "HMGET": ModifyFirst,
@@ -133,8 +136,19 @@ func modSingleCommand(command, username string, args [][]byte) ([][]byte, revive
 				i += 1
 			}
 		}
-	case ModifyEvalStyle:
-		for i := 2; i < 1+len(args)/2; i++ {
+	case ModifyEvalStyle, ModifyEvalShaStyle:
+		kpos := 2
+		if modType == ModifyEvalShaStyle {
+			kpos = 3
+		}
+		if len(args) < kpos {
+			return args, nil
+		}
+		klen, err := parseLen(args[kpos])
+		if err != nil {
+			return args, nil
+		}
+		for i := 3; i < 3+klen; i++ {
 			args[i] = append(namespacePrefix, args[i]...)
 		}
 	case ModifyScanStyle:

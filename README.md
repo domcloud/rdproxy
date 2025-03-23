@@ -2,8 +2,6 @@
 
 This is a redis proxy to make ACL more convenient. It prefixes keys with the ACL username before sending it to upstream and undoing it when it about to send downstream. This makes the connecting clients appear like the whole service is dedicated for that client while actually the redis server is shared or set for multi tenancy.
 
-At the moment this proxy does.
-
 Your app can connect to this instance listening by default at port `6479`. 
 
 ## What it does do
@@ -38,7 +36,6 @@ Note that the revival values doesn't work for KEYS ran via EVAL, that means you 
 ## TODO 
 
 + RESP3 protocol (aka `HELLO 3`)
-+ Pub/Sub implementations
 + Use cluster for read operations
 + Unit tests
 

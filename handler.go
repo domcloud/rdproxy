@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"log"
 	"net"
-	"strconv"
 	"strings"
 
 	"github.com/tidwall/redcon"
@@ -19,6 +18,7 @@ type Handler struct {
 type HandlerContext struct {
 	upstreamConn net.Conn
 	username     string
+	detached     bool
 }
 
 func NewHandler(config Config) *Handler {
@@ -55,7 +55,6 @@ func (m *Handler) ServeRESP(conn redcon.Conn, cmd redcon.Command) {
 
 	// Read response from Redis
 	var b bytes.Buffer
-
 	reader := newRespReader(bufio.NewReader(upConn), &b, reviver)
 	if err = reader.ReadReply(); err != nil {
 		log.Printf("Failed to read response: %v", err)
@@ -64,10 +63,16 @@ func (m *Handler) ServeRESP(conn redcon.Conn, cmd redcon.Command) {
 	}
 	response := b.Bytes()
 
-	if command == "AUTH" && len(cmd.Args) == 3 {
-		if strings.HasPrefix(string(response), "+OK") {
+	if len(response) > 0 && response[0] != '-' {
+		if command == "AUTH" && len(cmd.Args) == 3 {
 			context.username = string(cmd.Args[1])
 			conn.SetContext(context)
+		} else if command == "SUBSCRIBE" || command == "PSUBSRIBE" {
+			// this will detach connection from this loop
+			context.detached = true
+			conn.SetContext(context)
+			dconn := conn.Detach()
+			go m.subscriptionLoop(dconn, upConn)
 		}
 	}
 
@@ -91,22 +96,52 @@ func (m *Handler) AcceptConn(conn redcon.Conn) bool {
 
 func (m *Handler) ClosedConn(conn redcon.Conn, err error) {
 	context, ok := conn.Context().(HandlerContext)
-	if ok && context.upstreamConn != nil {
+	if ok && context.upstreamConn != nil && !context.detached {
 		context.upstreamConn.Close()
+		context.upstreamConn = nil
 	}
 }
 
-func buildRESPCommand(args [][]byte) []byte {
-	var sb bytes.Buffer
-	sb.WriteByte('*')
-	sb.WriteString(strconv.Itoa(len(args)))
-	sb.WriteString("\r\n")
-	for _, arg := range args {
-		sb.WriteByte('$')
-		sb.WriteString(strconv.Itoa(len(arg)))
-		sb.WriteString("\r\n")
-		sb.Write(arg)
-		sb.WriteString("\r\n")
+func (m *Handler) subscriptionLoop(conn redcon.DetachedConn, upConn net.Conn) {
+	defer conn.Close()
+	context, ok := conn.Context().(HandlerContext)
+	if !ok || context.upstreamConn == nil {
+		conn.Close()
+		return
 	}
-	return sb.Bytes()
+
+	go (func() {
+		cmd, err := conn.ReadCommand()
+		if err != nil {
+			log.Printf("Failed to read command: %v", err)
+			conn.Close()
+			return
+		}
+		command := strings.ToUpper(string(cmd.Args[0]))
+		newArgs, _ := modSingleCommand(command, context.username, cmd.Args)
+		cmd.Args = newArgs
+
+		// Construct RESP command & send to redis
+		request := buildRESPCommand(cmd.Args)
+		_, err = upConn.Write(request)
+		if err != nil {
+			log.Printf("Failed to send command: %v", err)
+			conn.Close()
+			return
+		}
+	})()
+
+	for {
+		conn.Flush()
+
+		var b bytes.Buffer
+		reader := newRespReader(bufio.NewReader(upConn), &b, nil)
+		if err := reader.ReadReply(); err != nil {
+			log.Printf("Error reading subscription response: %v", err)
+			conn.Close()
+			return
+		}
+
+		conn.WriteRaw(b.Bytes())
+	}
 }

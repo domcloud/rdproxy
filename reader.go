@@ -133,3 +133,18 @@ func parseLen(p []byte) (int, error) {
 
 	return n, nil
 }
+
+func buildRESPCommand(args [][]byte) []byte {
+	var sb bytes.Buffer
+	sb.WriteByte('*')
+	sb.WriteString(strconv.Itoa(len(args)))
+	sb.WriteString("\r\n")
+	for _, arg := range args {
+		sb.WriteByte('$')
+		sb.WriteString(strconv.Itoa(len(arg)))
+		sb.WriteString("\r\n")
+		sb.Write(arg)
+		sb.WriteString("\r\n")
+	}
+	return sb.Bytes()
+}

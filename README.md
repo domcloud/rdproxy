@@ -1,10 +1,32 @@
 # RDPROXY
 
-This is a redis proxy to make ACL more convenient. It prefixes keys with the ACL username before sending it to upstream and undoing it when it about to send downstream. This makes the connection appear truly support redis for multi tenancy.
+This is a redis proxy to make ACL more convenient. It prefixes keys with the ACL username before sending it to upstream and undoing it when it about to send downstream. This makes the connecting clients appear like the whole service is dedicated for that client while actually the redis server is shared or set for multi tenancy.
 
 At the moment this proxy does.
 
 Your app can connect to this instance listening by default at port `6479`. 
+
+## What it does do
+
+Let's assume this software runs on port 6479 while the upstream Redis is on port 6379.
+
+When you call `GET foo:bar` to port 6479, without any `AUTH` command, it will send `GET default:foo:bar` to upstream Redis, since the current user is `default`. Let's notate this as `|GET foo:bar| > |GET default:foo:bar|`.
+
+This is how it works when it executed serially:
+
+```
+|GET foo| > |GET default:foo|
+|AUTH user pass| > |AUTH user pass|
+|GET foo| > |GET user:foo|
+|SET foo bar| > |GET user:foo bar|
+|KEYS foo:*| > |KEYS user:foo:*|
+|SCAN 0| > |SCAN 0 MATCH user:*|
+|EVAL "return redis.call('KEYS', KEYS[1])" 1 *| > |EVAL "return redis.call('KEYS', KEYS[1])" 1 user:*|
+```
+
+The return values of some commands like KEYS and SCAN will be "revived" (e.g. from `user:foo:bar` to `foo:bar`) so redis clients wouldn't need to adapt. 
+
+Note that the revival values doesn't work for KEYS ran via EVAL, that means you should only access key names provided via `KEYS` otherwise your lua script won't work properly.
 
 ## Envar Options
 

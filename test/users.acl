@@ -1,0 +1,3 @@
+user default on nopass ~default:* &default:* +@all
+user root on > ~* &* +@all
+user foo on nopass ~foo:* &foo:* +@all

@@ -67,7 +67,7 @@ func (m *Handler) ServeRESP(conn redcon.Conn, cmd redcon.Command) {
 		if command == "AUTH" && len(cmd.Args) == 3 {
 			context.username = string(cmd.Args[1])
 			conn.SetContext(context)
-		} else if command == "SUBSCRIBE" || command == "PSUBSRIBE" {
+		} else if command == "SUBSCRIBE" || command == "PSUBSCRIBE" {
 			// this will detach connection from this loop
 			context.detached = true
 			conn.SetContext(context)

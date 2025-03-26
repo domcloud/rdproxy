@@ -1,0 +1,22 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    connection_pool (2.5.0)
+    message_bus (4.4.1)
+      rack (>= 1.1.3)
+    rack (3.1.12)
+    redis (5.4.0)
+      redis-client (>= 0.22.0)
+    redis-client (0.24.0)
+      connection_pool
+
+PLATFORMS
+  ruby
+  x86_64-linux
+
+DEPENDENCIES
+  message_bus
+  redis
+
+BUNDLED WITH
+   2.6.2

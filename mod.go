@@ -154,9 +154,6 @@ func modSingleCommand(command, username string, args [][]byte) ([][]byte, revive
 		}
 	case ModifyEvalStyle, ModifyEvalShaStyle:
 		kpos := 2
-		if modType == ModifyEvalShaStyle {
-			kpos = 3
-		}
 		if len(args) < kpos {
 			return args, nil
 		}
